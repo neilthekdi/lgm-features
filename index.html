@@ -401,9 +401,13 @@
         PHASE1 + PHASE2 + PHASE3 + PHASE4 + PHASE5,
       ];
       const PHASE_STARTS = [0, ...PHASE_ENDS.slice(0, -1)];
+      // On mobile, Slate and Contact are tap-triggered — swipe is capped at phase 3 end
+      const SWIPE_CAP    = isMobile ? PHASE1 + PHASE2 + PHASE3 : Infinity;
 
       let snapRaf      = null;
       let lastVelocity = 0;
+      let touchStartX  = 0;
+      let touchStartYi = 0;
 
       function cancelSnap() {
         if (snapRaf) { cancelAnimationFrame(snapRaf); snapRaf = null; }
@@ -420,15 +424,27 @@
         snapRaf = requestAnimationFrame(step);
       }
 
-      function onTouchEnd() {
+      function onTouchEnd(e) {
+        const t    = e.changedTouches[0];
+        const dist = Math.sqrt(Math.pow(t.clientX - touchStartX, 2) + Math.pow(t.clientY - touchStartYi, 2));
+
+        // Tap past the swipe cap (mobile phases 4+5) → advance to next phase end
+        if (isMobile && dist < 15 && virtual >= SWIPE_CAP - 0.5) {
+          for (var i = 0; i < PHASE_ENDS.length; i++) {
+            if (virtual < PHASE_ENDS[i] - 0.5) { snapTo(PHASE_ENDS[i]); return; }
+          }
+          return;
+        }
+
         if (lastVelocity < 0) {
-          // Scrolling backward — snap to the start of the current phase
+          // Scrolling backward — snap to start of current phase
           for (var i = PHASE_STARTS.length - 1; i >= 0; i--) {
             if (virtual > PHASE_STARTS[i] + 0.5) { snapTo(PHASE_STARTS[i]); return; }
           }
         } else {
-          // Scrolling forward — snap to the end of the current phase
+          // Scrolling forward — snap to end of current phase, respecting swipe cap
           for (var i = 0; i < PHASE_ENDS.length; i++) {
+            if (PHASE_ENDS[i] > SWIPE_CAP + 0.5) break;
             if (virtual < PHASE_ENDS[i] - 0.5) { snapTo(PHASE_ENDS[i]); return; }
           }
         }
@@ -437,12 +453,19 @@
       function onTouchStart(e) {
         cancelSnap();
         lastTouchY   = e.touches[0].clientY;
+        touchStartX  = e.touches[0].clientX;
+        touchStartYi = e.touches[0].clientY;
         lastVelocity = 0;
       }
       function onTouchMove(e) {
         e.preventDefault();
         const y   = e.touches[0].clientY;
         const raw = (lastTouchY - y) * 2;
+        // Block forward swipe past the cap on mobile
+        if (isMobile && raw > 0 && virtual >= SWIPE_CAP) {
+          lastTouchY = y;
+          return;
+        }
         lastVelocity = raw;
         schedule(raw);
         lastTouchY = y;
