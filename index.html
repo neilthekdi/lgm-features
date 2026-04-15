@@ -396,7 +396,7 @@
       function onTouchMove(e) {
         e.preventDefault();
         const y = e.touches[0].clientY;
-        schedule((lastTouchY - y) * 2);
+        schedule((lastTouchY - y) * 4);
         lastTouchY = y;
       }
 
