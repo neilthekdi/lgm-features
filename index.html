@@ -64,6 +64,13 @@
       text-transform: uppercase;
       color: var(--charcoal);
       white-space: nowrap;
+      will-change: transform, gap;
+    }
+
+    @media (max-width: 768px) {
+      #wordmark {
+        font-size: clamp(3rem, 24vw, 7rem);
+      }
     }
 
     .word {
@@ -82,6 +89,7 @@
         flex-wrap: wrap;
         justify-content: center;
         white-space: normal;
+        transform-origin: center center;
       }
       #wordmark .word:first-child {
         flex-basis: 100%;
@@ -261,9 +269,12 @@
       let wordmarkOffset = 0;
       let virtual        = 0;
       const isMobile     = window.matchMedia('(max-width: 768px)').matches;
-      let mobileFontStart = 0;
-      let mobileFontEnd   = 0;
-      const firstWord     = document.querySelector('#wordmark .word:first-child');
+      let mobileScaleStart = 1;
+      const firstWord      = document.querySelector('#wordmark .word:first-child');
+
+      // rAF throttle
+      let pendingDelta = 0;
+      let rafScheduled = false;
 
       function init() {
         tailWidths = tails.map(function (t) { return t.scrollWidth; });
@@ -275,11 +286,15 @@
         const copyRect   = copyArea.getBoundingClientRect();
         const contentGap = parseFloat(getComputedStyle(content).rowGap) || 0;
         wordmarkOffset   = (copyRect.height + contentGap) / 2;
-        wordmark.style.transform = 'translateY(' + wordmarkOffset + 'px)';
+        const initScale = isMobile ? mobileScaleStart : 1;
+        wordmark.style.transform = 'translateY(' + wordmarkOffset + 'px) scale(' + initScale + ')';
 
         if (isMobile) {
-          mobileFontStart = parseFloat(getComputedStyle(wordmark).fontSize);
-          mobileFontEnd   = Math.min(window.innerWidth * 0.24, 112);
+          // CSS already sets the large font-size; we start scaled down to
+          // match what the smaller size would have looked like, then scale to 1.
+          const cssSize   = parseFloat(getComputedStyle(wordmark).fontSize);
+          const smallSize = Math.min(window.innerWidth * 0.08, 48);
+          mobileScaleStart = smallSize / cssSize;
         }
 
         draw(0);
@@ -299,9 +314,10 @@
         });
         wordmark.style.gap = initialGap * (1 - p2) + 'px';
 
-        // Mobile: grow font-size and collapse to one line once tails are done
+        // Mobile: scale up (GPU only, no reflow) and collapse to one line
         if (isMobile) {
-          wordmark.style.fontSize = (mobileFontStart + (mobileFontEnd - mobileFontStart) * p2) + 'px';
+          const scale = mobileScaleStart + (1 - mobileScaleStart) * p2;
+          wordmark.style.transform = 'translateY(' + wordmarkOffset * (1 - p3) + 'px) scale(' + scale + ')';
           if (p2 >= 0.95) {
             wordmark.style.flexWrap = 'nowrap';
             firstWord.style.flexBasis = 'auto';
@@ -315,7 +331,9 @@
 
         // Phase 3: wordmark rises to natural position, about copy fades in
         const p3 = Math.min(Math.max(0, (virtual - PHASE1 - PHASE2) / PHASE3), 1);
-        wordmark.style.transform = 'translateY(' + wordmarkOffset * (1 - p3) + 'px)';
+        if (!isMobile) {
+          wordmark.style.transform = 'translateY(' + wordmarkOffset * (1 - p3) + 'px)';
+        }
         const copyP = Math.max(0, (p3 - 0.3) / 0.7);
         aboutCopy.style.opacity = copyP;
 
@@ -338,20 +356,32 @@
 
       let lastTouchY = 0;
 
+      function schedule(delta) {
+        pendingDelta += delta;
+        if (!rafScheduled) {
+          rafScheduled = true;
+          requestAnimationFrame(function () {
+            rafScheduled = false;
+            draw(pendingDelta);
+            pendingDelta = 0;
+          });
+        }
+      }
+
       function onWheel(e) {
         e.preventDefault();
         const mult = e.deltaMode === 2 ? window.innerHeight
                    : e.deltaMode === 1 ? 16 : 1;
         const MAX_DELTA = 50;
         const raw = e.deltaY * mult;
-        draw(Math.sign(raw) * Math.min(Math.abs(raw), MAX_DELTA));
+        schedule(Math.sign(raw) * Math.min(Math.abs(raw), MAX_DELTA));
       }
 
       function onTouchStart(e) { lastTouchY = e.touches[0].clientY; }
       function onTouchMove(e) {
         e.preventDefault();
         const y = e.touches[0].clientY;
-        draw((lastTouchY - y) * 2);
+        schedule((lastTouchY - y) * 2);
         lastTouchY = y;
       }
 
