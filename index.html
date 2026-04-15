@@ -77,6 +77,18 @@
       white-space: nowrap;
     }
 
+    @media (max-width: 768px) {
+      #wordmark {
+        flex-wrap: wrap;
+        justify-content: center;
+        white-space: normal;
+      }
+      #wordmark .word:first-child {
+        flex-basis: 100%;
+        justify-content: center;
+      }
+    }
+
     #copy-area {
       position: relative;
       width: 46ch;
@@ -244,29 +256,31 @@
       const scrollHint   = document.getElementById('scroll-hint');
       const tails        = Array.from(document.querySelectorAll('.tail'));
 
-      let tailWidths  = [];
-      let initialGap  = 0;   // gap between L G M spans
-      let wordmarkOffset = 0; // px to shift wordmark down initially so it appears centered alone
-      let virtual     = 0;
+      let tailWidths     = [];
+      let initialGap     = 0;
+      let wordmarkOffset = 0;
+      let virtual        = 0;
+      const isMobile     = window.matchMedia('(max-width: 768px)').matches;
+      let mobileFontStart = 0;
+      let mobileFontEnd   = 0;
+      const firstWord     = document.querySelector('#wordmark .word:first-child');
 
       function init() {
-        // Lock tail widths for collapse animation
         tailWidths = tails.map(function (t) { return t.scrollWidth; });
         tails.forEach(function (t, i) { t.style.width = tailWidths[i] + 'px'; });
 
-        // Gap between the three word spans
         initialGap = parseFloat(getComputedStyle(wordmark).columnGap) || 0;
 
-        // Measure how far wordmark needs to shift down so it sits at visual
-        // centre when the copy is invisible (copy is in-flow but opacity 0,
-        // so it occupies space; we compensate with an initial translateY).
-        const copyArea    = document.getElementById('copy-area');
-        const copyRect    = copyArea.getBoundingClientRect();
-        const contentGap  = parseFloat(getComputedStyle(content).rowGap) || 0;
-        wordmarkOffset    = (copyRect.height + contentGap) / 2;
-
-        // Apply initial offset so wordmark looks centred on its own
+        const copyArea   = document.getElementById('copy-area');
+        const copyRect   = copyArea.getBoundingClientRect();
+        const contentGap = parseFloat(getComputedStyle(content).rowGap) || 0;
+        wordmarkOffset   = (copyRect.height + contentGap) / 2;
         wordmark.style.transform = 'translateY(' + wordmarkOffset + 'px)';
+
+        if (isMobile) {
+          mobileFontStart = parseFloat(getComputedStyle(wordmark).fontSize);
+          mobileFontEnd   = Math.min(window.innerWidth * 0.24, 112);
+        }
 
         draw(0);
       }
@@ -284,6 +298,20 @@
           t.style.width = tailWidths[i] * (1 - p2) + 'px';
         });
         wordmark.style.gap = initialGap * (1 - p2) + 'px';
+
+        // Mobile: grow font-size and collapse to one line once tails are done
+        if (isMobile) {
+          wordmark.style.fontSize = (mobileFontStart + (mobileFontEnd - mobileFontStart) * p2) + 'px';
+          if (p2 >= 0.95) {
+            wordmark.style.flexWrap = 'nowrap';
+            firstWord.style.flexBasis = 'auto';
+            firstWord.style.justifyContent = '';
+          } else {
+            wordmark.style.flexWrap = 'wrap';
+            firstWord.style.flexBasis = '100%';
+            firstWord.style.justifyContent = 'center';
+          }
+        }
 
         // Phase 3: wordmark rises to natural position, about copy fades in
         const p3 = Math.min(Math.max(0, (virtual - PHASE1 - PHASE2) / PHASE3), 1);
