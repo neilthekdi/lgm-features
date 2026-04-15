@@ -314,6 +314,9 @@
         });
         wordmark.style.gap = initialGap * (1 - p2) + 'px';
 
+        // Phase 3: wordmark rises to natural position, about copy fades in
+        const p3 = Math.min(Math.max(0, (virtual - PHASE1 - PHASE2) / PHASE3), 1);
+
         // Mobile: scale up (GPU only, no reflow) and collapse to one line
         if (isMobile) {
           const scale = mobileScaleStart + (1 - mobileScaleStart) * p2;
@@ -327,11 +330,7 @@
             firstWord.style.flexBasis = '100%';
             firstWord.style.justifyContent = 'center';
           }
-        }
-
-        // Phase 3: wordmark rises to natural position, about copy fades in
-        const p3 = Math.min(Math.max(0, (virtual - PHASE1 - PHASE2) / PHASE3), 1);
-        if (!isMobile) {
+        } else {
           wordmark.style.transform = 'translateY(' + wordmarkOffset * (1 - p3) + 'px)';
         }
         const copyP = Math.max(0, (p3 - 0.3) / 0.7);
