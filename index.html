@@ -265,22 +265,30 @@
       let virtual        = 0;
       const isMobile     = window.matchMedia('(max-width: 768px)').matches;
       let mobileScaleStart = 1;
+      let mobileScaleEnd   = 1;
 
       // rAF throttle
       let pendingDelta = 0;
       let rafScheduled = false;
 
       function init() {
+        if (isMobile) {
+          // Shrink font-size so LOVELAND GOLD MILL fits in the viewport at scale(1).
+          // This prevents the layout from overflowing the viewport — which would cause
+          // the browser to clip L (at the left edge) before the transform is applied.
+          // Then animate scale above 1 during the squeeze so LGM ends at the right size.
+          const maxFontSize  = parseFloat(getComputedStyle(wordmark).fontSize);
+          const naturalWidth = wordmark.scrollWidth;
+          const fittingSize  = maxFontSize * (window.innerWidth * 0.88) / naturalWidth;
+          wordmark.style.fontSize = fittingSize + 'px';
+          mobileScaleStart = 1;
+          mobileScaleEnd   = maxFontSize / fittingSize;
+        }
+
         tailWidths = tails.map(function (t) { return t.scrollWidth; });
         tails.forEach(function (t, i) { t.style.width = tailWidths[i] + 'px'; });
 
         initialGap = parseFloat(getComputedStyle(wordmark).columnGap) || 0;
-
-        // Calculate mobile start scale from the actual one-line width so the full
-        // wordmark fits the viewport — must happen before draw(0) sets the transform.
-        if (isMobile) {
-          mobileScaleStart = Math.min((window.innerWidth * 0.88) / wordmark.scrollWidth, 1);
-        }
 
         const copyArea   = document.getElementById('copy-area');
         const copyRect   = copyArea.getBoundingClientRect();
@@ -307,9 +315,9 @@
         // Phase 3: wordmark rises to natural position, about copy fades in
         const p3 = Math.min(Math.max(0, (virtual - PHASE1 - PHASE2) / PHASE3), 1);
 
-        // Wordmark rise (phase 3); mobile also scales up from start scale to full size
+        // Wordmark rise (phase 3); mobile scales from 1 up to mobileScaleEnd during squeeze
         if (isMobile) {
-          const scale = mobileScaleStart + (1 - mobileScaleStart) * p2;
+          const scale = mobileScaleStart + (mobileScaleEnd - mobileScaleStart) * p2;
           wordmark.style.transform = 'translateY(' + wordmarkOffset * (1 - p3) + 'px) scale(' + scale + ')';
         } else {
           wordmark.style.transform = 'translateY(' + wordmarkOffset * (1 - p3) + 'px)';
