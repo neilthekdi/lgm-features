@@ -350,9 +350,16 @@
         slateCopy.style.opacity = slateOpacity * slateFade;
         contactCopy.style.opacity = Math.min(Math.max(0, (p5 - 0.72) / 0.28), 1);
 
-        // Fade scroll hint out on first movement
-
-        if (virtual > 0) scrollHint.style.opacity = '0';
+        // Scroll / tap hint
+        if (virtual > 0) {
+          const total = PHASE1 + PHASE2 + PHASE3 + PHASE4 + PHASE5;
+          if (isMobile && virtual >= PHASE1 + PHASE2 + PHASE3 - 0.5 && virtual < total - 0.5) {
+            scrollHint.textContent = 'tap';
+            scrollHint.style.opacity = '0.5';
+          } else {
+            scrollHint.style.opacity = '0';
+          }
+        }
       }
 
       let lastTouchY = 0;
