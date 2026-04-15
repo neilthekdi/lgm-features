@@ -393,15 +393,17 @@
       }
 
       // ── Phase snap ──────────────────────────────────────────────────────
-      const PHASE_ENDS = [
+      const PHASE_ENDS   = [
         PHASE1,
         PHASE1 + PHASE2,
         PHASE1 + PHASE2 + PHASE3,
         PHASE1 + PHASE2 + PHASE3 + PHASE4,
         PHASE1 + PHASE2 + PHASE3 + PHASE4 + PHASE5,
       ];
+      const PHASE_STARTS = [0, ...PHASE_ENDS.slice(0, -1)];
 
-      let snapRaf = null;
+      let snapRaf      = null;
+      let lastVelocity = 0;
 
       function cancelSnap() {
         if (snapRaf) { cancelAnimationFrame(snapRaf); snapRaf = null; }
@@ -419,20 +421,30 @@
       }
 
       function onTouchEnd() {
-        // Find the end of whichever phase is currently in progress
-        for (var i = 0; i < PHASE_ENDS.length; i++) {
-          if (virtual < PHASE_ENDS[i] - 0.5) { snapTo(PHASE_ENDS[i]); return; }
+        if (lastVelocity < 0) {
+          // Scrolling backward — snap to the start of the current phase
+          for (var i = PHASE_STARTS.length - 1; i >= 0; i--) {
+            if (virtual > PHASE_STARTS[i] + 0.5) { snapTo(PHASE_STARTS[i]); return; }
+          }
+        } else {
+          // Scrolling forward — snap to the end of the current phase
+          for (var i = 0; i < PHASE_ENDS.length; i++) {
+            if (virtual < PHASE_ENDS[i] - 0.5) { snapTo(PHASE_ENDS[i]); return; }
+          }
         }
       }
 
       function onTouchStart(e) {
         cancelSnap();
-        lastTouchY = e.touches[0].clientY;
+        lastTouchY   = e.touches[0].clientY;
+        lastVelocity = 0;
       }
       function onTouchMove(e) {
         e.preventDefault();
-        const y = e.touches[0].clientY;
-        schedule((lastTouchY - y) * 2);
+        const y   = e.touches[0].clientY;
+        const raw = (lastTouchY - y) * 2;
+        lastVelocity = raw;
+        schedule(raw);
         lastTouchY = y;
       }
 
