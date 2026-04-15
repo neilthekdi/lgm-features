@@ -392,7 +392,43 @@
         schedule(Math.sign(raw) * Math.min(Math.abs(raw), MAX_DELTA));
       }
 
-      function onTouchStart(e) { lastTouchY = e.touches[0].clientY; }
+      // ── Phase snap ──────────────────────────────────────────────────────
+      const PHASE_ENDS = [
+        PHASE1,
+        PHASE1 + PHASE2,
+        PHASE1 + PHASE2 + PHASE3,
+        PHASE1 + PHASE2 + PHASE3 + PHASE4,
+        PHASE1 + PHASE2 + PHASE3 + PHASE4 + PHASE5,
+      ];
+
+      let snapRaf = null;
+
+      function cancelSnap() {
+        if (snapRaf) { cancelAnimationFrame(snapRaf); snapRaf = null; }
+      }
+
+      function snapTo(target) {
+        cancelSnap();
+        function step() {
+          const diff = target - virtual;
+          if (Math.abs(diff) < 0.5) { draw(diff); snapRaf = null; return; }
+          draw(diff * 0.15);
+          snapRaf = requestAnimationFrame(step);
+        }
+        snapRaf = requestAnimationFrame(step);
+      }
+
+      function onTouchEnd() {
+        // Find the end of whichever phase is currently in progress
+        for (var i = 0; i < PHASE_ENDS.length; i++) {
+          if (virtual < PHASE_ENDS[i] - 0.5) { snapTo(PHASE_ENDS[i]); return; }
+        }
+      }
+
+      function onTouchStart(e) {
+        cancelSnap();
+        lastTouchY = e.touches[0].clientY;
+      }
       function onTouchMove(e) {
         e.preventDefault();
         const y = e.touches[0].clientY;
@@ -403,6 +439,7 @@
       window.addEventListener('wheel',      onWheel,      { passive: false });
       window.addEventListener('touchstart', onTouchStart, { passive: true  });
       window.addEventListener('touchmove',  onTouchMove,  { passive: false });
+      window.addEventListener('touchend',   onTouchEnd,   { passive: true  });
 
       // ── Email copy to clipboard ──────────────────────────────────────
       document.querySelectorAll('.email').forEach(function (el) {
