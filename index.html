@@ -309,13 +309,20 @@
         const p1 = Math.min(virtual / PHASE1, 1);
         tails.forEach(function (t) { t.style.opacity = 1 - p1; });
 
-        // Phase 2: clip tails and slide words together (GPU only — no layout)
+        // Phase 2: clip tails and close the gap
         const p2 = Math.min(Math.max(0, (virtual - PHASE1) / PHASE2), 1);
         tails.forEach(function (t) {
           t.style.clipPath = p2 > 0 ? 'inset(0 ' + (p2 * 100).toFixed(1) + '% 0 0)' : '';
         });
-        words[1].style.transform = 'translateX(-' + ((tailWidths[0] + initialGap) * p2).toFixed(1) + 'px)';
-        words[2].style.transform = 'translateX(-' + ((tailWidths[0] + tailWidths[1] + 2 * initialGap) * p2).toFixed(1) + 'px)';
+        if (isMobile) {
+          // Mobile: words are on two lines so translateX offsets don't apply;
+          // close the gap between words directly (one layout op per frame, acceptable here)
+          wordmark.style.gap = initialGap * (1 - p2) + 'px';
+        } else {
+          // Desktop: all words on one line — slide G and M leftward (GPU only)
+          words[1].style.transform = 'translateX(-' + ((tailWidths[0] + initialGap) * p2).toFixed(1) + 'px)';
+          words[2].style.transform = 'translateX(-' + ((tailWidths[0] + tailWidths[1] + 2 * initialGap) * p2).toFixed(1) + 'px)';
+        }
 
         // Phase 3: wordmark rises to natural position, about copy fades in
         const p3 = Math.min(Math.max(0, (virtual - PHASE1 - PHASE2) / PHASE3), 1);
