@@ -87,14 +87,7 @@
 
     @media (max-width: 768px) {
       #wordmark {
-        flex-wrap: wrap;
-        justify-content: center;
-        white-space: normal;
         transform-origin: center center;
-      }
-      #wordmark .word:first-child {
-        flex-basis: 100%;
-        justify-content: center;
       }
     }
 
@@ -272,7 +265,6 @@
       let virtual        = 0;
       const isMobile     = window.matchMedia('(max-width: 768px)').matches;
       let mobileScaleStart = 1;
-      const firstWord      = document.querySelector('#wordmark .word:first-child');
 
       // rAF throttle
       let pendingDelta = 0;
@@ -284,20 +276,16 @@
 
         initialGap = parseFloat(getComputedStyle(wordmark).columnGap) || 0;
 
+        // Calculate mobile start scale from the actual one-line width so the full
+        // wordmark fits the viewport — must happen before draw(0) sets the transform.
+        if (isMobile) {
+          mobileScaleStart = Math.min((window.innerWidth * 0.88) / wordmark.scrollWidth, 1);
+        }
+
         const copyArea   = document.getElementById('copy-area');
         const copyRect   = copyArea.getBoundingClientRect();
         const contentGap = parseFloat(getComputedStyle(content).rowGap) || 0;
         wordmarkOffset   = (copyRect.height + contentGap) / 2;
-        const initScale = isMobile ? mobileScaleStart : 1;
-        wordmark.style.transform = 'translateY(' + wordmarkOffset + 'px) scale(' + initScale + ')';
-
-        if (isMobile) {
-          // CSS already sets the large font-size; we start scaled down to
-          // match what the smaller size would have looked like, then scale to 1.
-          const cssSize   = parseFloat(getComputedStyle(wordmark).fontSize);
-          const smallSize = Math.min(window.innerWidth * 0.08, 48);
-          mobileScaleStart = smallSize / cssSize;
-        }
 
         draw(0);
       }
@@ -319,19 +307,10 @@
         // Phase 3: wordmark rises to natural position, about copy fades in
         const p3 = Math.min(Math.max(0, (virtual - PHASE1 - PHASE2) / PHASE3), 1);
 
-        // Mobile: scale up (GPU only, no reflow) and collapse to one line
+        // Wordmark rise (phase 3); mobile also scales up from start scale to full size
         if (isMobile) {
           const scale = mobileScaleStart + (1 - mobileScaleStart) * p2;
           wordmark.style.transform = 'translateY(' + wordmarkOffset * (1 - p3) + 'px) scale(' + scale + ')';
-          if (p2 >= 0.95) {
-            wordmark.style.flexWrap = 'nowrap';
-            firstWord.style.flexBasis = 'auto';
-            firstWord.style.justifyContent = '';
-          } else {
-            wordmark.style.flexWrap = 'wrap';
-            firstWord.style.flexBasis = '100%';
-            firstWord.style.justifyContent = 'center';
-          }
         } else {
           wordmark.style.transform = 'translateY(' + wordmarkOffset * (1 - p3) + 'px)';
         }
