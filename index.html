@@ -76,14 +76,13 @@
     .word {
       display: flex;
       align-items: baseline;
-      will-change: transform;
     }
 
     .tail {
       display: inline-block;
       overflow: hidden;
       white-space: nowrap;
-      will-change: opacity, clip-path;
+      will-change: opacity;
     }
 
     @media (max-width: 768px) {
@@ -281,10 +280,7 @@
 
       function init() {
         tailWidths = tails.map(function (t) { return t.scrollWidth; });
-        // Mobile uses width animation — pin natural widths so they can be animated down
-        if (isMobile) {
-          tails.forEach(function (t, i) { t.style.width = tailWidths[i] + 'px'; });
-        }
+        tails.forEach(function (t, i) { t.style.width = tailWidths[i] + 'px'; });
 
         initialGap = parseFloat(getComputedStyle(wordmark).columnGap) || 0;
 
@@ -313,22 +309,12 @@
         const p1 = Math.min(virtual / PHASE1, 1);
         tails.forEach(function (t) { t.style.opacity = 1 - p1; });
 
-        // Phase 2: collapse tails and close the gap
+        // Phase 2: shrink tail widths and close gap so flex recenters LGM naturally
         const p2 = Math.min(Math.max(0, (virtual - PHASE1) / PHASE2), 1);
-        if (isMobile) {
-          // Width animation: removes layout space so the two-line layout collapses correctly
-          tails.forEach(function (t, i) {
-            t.style.width = tailWidths[i] * (1 - p2) + 'px';
-          });
-          wordmark.style.gap = initialGap * (1 - p2) + 'px';
-        } else {
-          // Desktop: GPU-only — clip-path hides tails, translateX slides G and M leftward
-          tails.forEach(function (t) {
-            t.style.clipPath = p2 > 0 ? 'inset(0 ' + (p2 * 100).toFixed(1) + '% 0 0)' : '';
-          });
-          words[1].style.transform = 'translateX(-' + ((tailWidths[0] + initialGap) * p2).toFixed(1) + 'px)';
-          words[2].style.transform = 'translateX(-' + ((tailWidths[0] + tailWidths[1] + 2 * initialGap) * p2).toFixed(1) + 'px)';
-        }
+        tails.forEach(function (t, i) {
+          t.style.width = tailWidths[i] * (1 - p2) + 'px';
+        });
+        wordmark.style.gap = initialGap * (1 - p2) + 'px';
 
         // Phase 3: wordmark rises to natural position, about copy fades in
         const p3 = Math.min(Math.max(0, (virtual - PHASE1 - PHASE2) / PHASE3), 1);
